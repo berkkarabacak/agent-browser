@@ -23,6 +23,7 @@ Commands:
   delete <id>                   Delete a profile and its user data
   status                        Running browsers and approximate RAM
   profile show|set|group|ext    Inspect or edit a profile
+  gui                           Open the desktop window
   version                       Print the version
 
 Run "abrowser <command> --help" for command details.
@@ -148,6 +149,28 @@ and asks you to type the profile id, unless --yes is set.
 
 status prints running browsers and the sum of each process tree's resident
 memory. Shared libraries are counted once per process, so the total is approximate.
+
+`
+
+const guiHelp = `Usage:
+  abrowser gui
+  abrowser --root PATH gui
+  abrowser gui --root PATH
+
+Opens the desktop window on this data root.
+
+The window lists every profile (id, email, template, groups, running state,
+and RAM) and can filter that list. Launch and Close act on one profile or
+on the checked rows. Clone copies a frozen template into a new profile
+(id, email, and groups). Edit changes a profile's groups and its +ext / -ext
+overrides. Extensions and Groups manage the shared store. Settings stores
+the browser executable, the concurrent cap, and auto-close.
+
+Creating and freezing a template stays on the command line:
+  abrowser template create golden --group common
+  abrowser template freeze golden
+
+The same --root and ABROWSER_ROOT rules as the other commands apply.
 
 `
 

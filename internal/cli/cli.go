@@ -12,10 +12,11 @@ import (
 	"strings"
 
 	"abrowser/internal/app"
+	"abrowser/internal/version"
 )
 
-// Version is the milestone 1 release.
-const Version = "0.1.0"
+// Version is the abrowser release.
+const Version = version.Current
 
 // IO is the process stdio plus whether prompts are allowed.
 type IO struct {
@@ -91,6 +92,8 @@ func (c *CLI) dispatch(args []string) int {
 		return c.statusCmd(args[1:])
 	case "profile":
 		return c.profileCmd(args[1:])
+	case "gui":
+		return c.guiCmd(args[1:])
 	default:
 		fmt.Fprintf(c.IO.Err, "error: unknown command %q\n\n", args[0])
 		fmt.Fprint(c.IO.Err, rootHelp)

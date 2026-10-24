@@ -2,27 +2,36 @@
 
 `abrowser` is a profile manager and launcher for Chromium. It keeps one isolated browser profile per email account or AI agent, on a single Windows PC, without an automation API. Agents such as Claude or ChatGPT run as normal browser extensions inside each profile.
 
-Milestone 1 is the CLI: golden templates, cloned user-data directories, a shared extension store, and a cap on how many profiles can run at once.
+Milestone 1 is the CLI: golden templates, cloned user-data directories, a shared extension store, and a cap on how many profiles can run at once. Milestone 2 adds `abrowser gui`, a desktop window on the same binary and the same data root.
 
-Stock Google Chrome ignores `--load-extension`. Point `abrowser` at a Chromium build that still accepts it. [Ungoogled Chromium](https://github.com/ungoogled-software/ungoogled-chromium-windows/releases) is the reliable choice. [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/) often works too; if a build silently drops the flag, switch to ungoogled-chromium. Do not use the consumer Google Chrome from google.com/chrome.
+Stock Google Chrome ignores `--load-extension`. Point `abrowser` at a Chromium build that still accepts it. [Ungoogled Chromium](https://github.com/ungoogled-software/ungoogled-chromium-windows/releases) is the reliable choice. [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/) does too. The Linux walkthrough below used Chrome for Testing 156.0.8078.47. Do not use the consumer Google Chrome from google.com/chrome.
 
 ## Build
 
-Requires Go 1.22 or newer.
+Requires Go 1.22 or newer. The desktop window uses [Fyne](https://fyne.io), so the build needs cgo and a C compiler. One executable contains both the CLI and the GUI.
+
+On Windows, install [MSYS2](https://www.msys2.org/) and the UCRT64 gcc toolchain, then put `C:\msys64\ucrt64\bin` on `PATH` so `gcc` is visible to cgo:
 
 ```powershell
 go test ./...
 go build -ldflags "-s -w" -o abrowser.exe ./cmd/abrowser
 ```
 
-From Linux or macOS, cross-compile the Windows binary:
+The executable is a console program, so `abrowser list` still prints in `cmd.exe`. `abrowser gui` detaches that console and leaves the window up.
+
+From Linux, install a C compiler, the GL/X11 headers, and mingw-w64, then cross-compile:
 
 ```bash
+sudo apt install gcc pkg-config libgl1-mesa-dev libxcursor-dev libxrandr-dev \
+  libxinerama-dev libxi-dev libxxf86vm-dev gcc-mingw-w64-x86-64
 make test
-make build-windows   # writes dist/abrowser.exe
+make build          # dist/abrowser
+make build-windows  # dist/abrowser.exe
 ```
 
-Put `abrowser.exe` on `PATH`. The tool is a single executable and does not need Node.
+`make build-windows` sets `CGO_ENABLED=1` and `CC=x86_64-w64-mingw32-gcc`. It does not pass `-H windowsgui`, so the CLI keeps a console.
+
+Put `abrowser.exe` on `PATH`. The tool does not need Node.
 
 ## Data root
 
@@ -231,11 +240,119 @@ abrowser profile show <id> [--json]
 abrowser profile set <id> [--email E] [--timezone TZ] [--locale LOC] [--notes TEXT]
 abrowser profile group add|remove <id> <group>
 abrowser profile ext add|remove|reset <id> <extension>
+
+abrowser gui [--root PATH]
 ```
 
-`--json` prints the same data as a JSON document. Global flags `--root` and `--json` must come before the command. `abrowser <command> --help` prints that command's usage.
+`--json` prints the same data as a JSON document. Global flags `--root` and `--json` must come before the command (`abrowser --root PATH gui` works too). `abrowser <command> --help` prints that command's usage.
 
 Ids are 1–64 characters: letters, digits, `.`, `_`, and `-`. Extension and group names are lowercase. Emails are checked lightly (`ada@example.com`). Time zones are IANA names (`America/New_York`).
+
+## Desktop window
+
+`abrowser gui` opens the window for the same data root as the CLI.
+
+- **Profiles** lists id, email, template, groups, extension overrides, running state, and RAM. The filter matches any of those fields. Each row has Launch, Close, and Edit. Checkboxes plus Launch selected / Close selected act on many profiles. Clone asks for a frozen template, an id, an email, and groups.
+- **Edit** changes that profile's groups and its +ext / −ext overrides. Add pins an extra extension, Block records a removal (a removal wins), and Clear override drops both. The toolbar badge is still added automatically at launch.
+- **Extensions** lists the shared store and can add an unpacked folder or a `.crx`, or remove a version that nothing references.
+- **Groups** creates a group and pins or removes `name@version` members.
+- The header is always `Running N / max` plus approximate RAM.
+- **Settings** stores the browser executable, max concurrent (1–500), and auto-close. Extra Chromium flags stay on `abrowser config set extra-args`.
+
+Templates are still created and frozen from the CLI. The window only clones from a template that is already frozen.
+
+## Five profiles on a Windows PC
+
+This is the same check that ran here against Chrome for Testing: one shared extension in the `common` group, one extra extension per profile, five concurrent windows, separate user-data directories, a localStorage value that stays in one profile, the double-launch lock, then close.
+
+1. Install Go 1.22 or newer and the MSYS2 UCRT64 gcc toolchain described above. Build `abrowser.exe` from this repo.
+2. Download Chrome for Testing for Windows and unzip it. The build used here was [156.0.8078.47 win64](https://storage.googleapis.com/chrome-for-testing-public/156.0.8078.47/win64/chrome-win64.zip). A current Stable Chrome for Testing zip from [chrome-for-testing](https://googlechromelabs.github.io/chrome-for-testing/) is fine. Note the path to `chrome.exe` inside `chrome-win64`. Do not point this at stock Google Chrome.
+3. In PowerShell, from any directory:
+
+```powershell
+$browser = "$env:USERPROFILE\chrome-win64\chrome.exe"
+abrowser init
+abrowser config set browser $browser
+abrowser config set max-concurrent 5
+abrowser config set auto-close-lru false
+
+$src = "$env:TEMP\abrowser-ext"
+New-Item -ItemType Directory -Force "$src\common-marker" | Out-Null
+[System.IO.File]::WriteAllText("$src\common-marker\manifest.json", '{"manifest_version":3,"name":"Common Marker","version":"1.0.0","description":"Shared extension for every agent profile."}')
+abrowser ext add common-marker --from "$src\common-marker"
+
+1..5 | ForEach-Object {
+  $n = "{0:d3}" -f $_
+  $dir = "$src\note-$n"
+  New-Item -ItemType Directory -Force $dir | Out-Null
+  $json = '{"manifest_version":3,"name":"Note ' + $n + '","version":"1.0.0","description":"Per-profile extension for agent-' + $n + '."}'
+  [System.IO.File]::WriteAllText("$dir\manifest.json", $json)
+  abrowser ext add "note-$n" --from $dir
+}
+
+abrowser group create common
+abrowser group add common common-marker
+abrowser template create golden --timezone America/New_York --locale en-US --group common
+abrowser template freeze golden
+abrowser gui
+```
+
+`WriteAllText` avoids a UTF-8 BOM, which would make `manifest.json` invalid.
+
+4. In the window, Settings should already show that `chrome.exe`, max concurrent `5`, and auto-close off. Save only if you change them.
+5. Profiles, Clone, five times:
+
+| ID | Email | Groups |
+| --- | --- | --- |
+| agent-001 | agent-001@example.com | common |
+| agent-002 | agent-002@example.com | common |
+| agent-003 | agent-003@example.com | common |
+| agent-004 | agent-004@example.com | common |
+| agent-005 | agent-005@example.com | common |
+
+The template's `common` group is checked for you. Leave it checked.
+
+6. Edit each row. Choose `note-00N@1.0.0` and click Add (+). agent-001 gets note-001, agent-002 gets note-002, and so on. Resolved should list `common-marker@1.0.0` and that profile's note.
+7. Select shown, then Launch selected. The header should read `Running 5 / 5` and five Chrome for Testing windows should open. In PowerShell, the five main processes have different `--user-data-dir` values and the matching extensions:
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" |
+  Where-Object { $_.CommandLine -like '*--user-data-dir=*' -and $_.CommandLine -notlike '*--type=*' } |
+  ForEach-Object { $_.CommandLine }
+```
+
+Each line should contain `profiles\agent-00N\user-data`, `common-marker@`, and `note-00N@`, and it should not contain another profile's `note-00M@`.
+
+8. Click Launch on the agent-001 row again. The window reports that agent-001 is already running, and the other four stay up. That is the double-launch lock.
+9. Close selected. The header returns to `Running 0 / 5`.
+10. After they are closed, write a page that only agent-001 will open:
+
+```powershell
+$page = "$env:TEMP\abrowser-iso.html"
+[System.IO.File]::WriteAllText($page, @"
+<!doctype html><meta charset="utf-8"><title>isolation</title>
+<script>
+localStorage.setItem("abrowserIsolation", "only-agent-001");
+document.cookie = "abrowserIsolation=only-agent-001; path=/";
+</script><p>only-agent-001</p>
+"@)
+$ud = "$env:LOCALAPPDATA\AgentBrowser\profiles\agent-001\user-data"
+& $browser --user-data-dir="$ud" --no-first-run --no-default-browser-check "file:///$($page -replace '\\','/')"
+```
+
+Close that window, then search both profiles. agent-001's user-data should contain `only-agent-001`. agent-002's should not:
+
+```powershell
+$root = "$env:LOCALAPPDATA\AgentBrowser\profiles"
+Get-ChildItem "$root\agent-001\user-data" -Recurse -File -ErrorAction SilentlyContinue |
+  Select-String -Pattern "only-agent-001" -SimpleMatch -List
+Get-ChildItem "$root\agent-002\user-data" -Recurse -File -ErrorAction SilentlyContinue |
+  Select-String -Pattern "only-agent-001" -SimpleMatch -List
+```
+
+The second command should print nothing. The value lives in that profile's Local Storage (or Cookies) only.
+
+On Linux the same scenario is `go test -tags integration -count=1 -timeout 12m ./internal/app/ -run TestFiveLiveProfiles`. It expects `DISPLAY` and Chrome for Testing. Set `ABROWSER_BROWSER` to the chrome binary, or place it at `/tmp/cft/chrome-linux64/chrome`. That test is not part of `go test ./...`.
 
 ## Tests
 
@@ -243,13 +360,14 @@ Ids are 1–64 characters: letters, digits, `.`, `_`, and `-`. Extension and gro
 go test ./...
 ```
 
-The tests cover extension resolution (group order, latest version, add, and remove-wins), CRX unpacking, cache exclusion while cloning, launch arguments, the concurrent limit, and a CLI walkthrough that creates a template, adds extensions from a folder and a `.crx`, clones three profiles, launches them, hits the limit, and auto-closes the oldest. The walkthrough uses a fake browser process, not a real Chromium.
+The tests cover extension resolution (group order, latest version, add, and remove-wins), CRX unpacking, cache exclusion while cloning, launch arguments, the concurrent limit, profile-list filtering, and a CLI walkthrough that creates a template, adds extensions from a folder and a `.crx`, clones three profiles, launches them, hits the limit, and auto-closes the oldest. The walkthrough uses a fake browser process, not a real Chromium. `TestFiveLiveProfiles` (build tag `integration`) launches five real Chrome for Testing processes and checks user-data dirs, loaded extensions, the double-launch lock, and a localStorage marker.
 
 ## Layout of this repo
 
 ```text
 cmd/abrowser/          main
 internal/cli/          commands and help
+internal/desktop/      Fyne window (abrowser gui)
 internal/app/          root lock, manifests, launch, clone
 internal/extensions/   store, CRX, resolution
 internal/profile/      user-data copy, preferences, badge, process start
@@ -257,16 +375,17 @@ internal/proc/         process tree, RSS, kill (Linux, Windows, other)
 internal/layout/       paths under the data root
 internal/manifest/     profile and template JSON
 internal/names/        id, email, locale, and time zone checks
+internal/version/      release string shared by the CLI and the window
 ```
 
-## Left out of milestone 1
+## Left out
 
 - No Chrome DevTools Protocol, Puppeteer, Playwright, or other automation API. Extensions run inside the profile as a person would use them.
 - No download or update from the Chrome Web Store. Extensions are local unpacked directories or `.crx` files you already have.
 - No per-window title rewrite on Windows. Identity is the Chromium toolbar name plus the badge extension. The title bar remains the active tab's title.
 - Time zone is the `TZ` environment variable. Windows Chromium uses the system time zone and may ignore it. Locale is `--lang` and `--accept-lang`.
 - "Least recently used" is least recently launched. There is no idle timer based on input or network.
-- No sync between machines, no remote control, and no GUI.
+- No sync between machines and no remote control. `abrowser gui` is a local window on the same data root as the CLI.
 - RAM is the sum of each browser's process-tree working set, not a private-bytes accounting of shared Chrome libraries.
 - A recycled PID could theoretically confuse a lock until that other process exits. A dead PID is reclaimed.
 - Editing `Preferences` deletes `Secure Preferences` only when the display name or clean-exit flag actually changes, so Chromium regenerates the HMAC. Protected settings that lived only in that signed file can be dropped on that one rewrite.
