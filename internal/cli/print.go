@@ -100,6 +100,11 @@ func (c *CLI) printConfig(view app.ConfigView, asJSON bool) int {
 	fmt.Fprintf(c.IO.Out, "browser exists:   %s\n", exists)
 	fmt.Fprintf(c.IO.Out, "max-concurrent:   %d\n", view.MaxConcurrent)
 	fmt.Fprintf(c.IO.Out, "auto-close-lru:   %t\n", view.AutoCloseLRU)
+	setup := "no"
+	if view.SetupComplete {
+		setup = "yes"
+	}
+	fmt.Fprintf(c.IO.Out, "setup complete:   %s\n", setup)
 	if len(view.ExtraArgs) == 0 {
 		fmt.Fprintf(c.IO.Out, "extra-args:       (none)\n")
 	} else {
@@ -207,6 +212,9 @@ func (c *CLI) printProfile(view app.ProfileView, asJSON bool) int {
 		notes = "(none)"
 	}
 	fmt.Fprintf(c.IO.Out, "Profile %s\n", p.ID)
+	if p.DisplayName != "" {
+		fmt.Fprintf(c.IO.Out, "  name:       %s\n", p.DisplayName)
+	}
 	fmt.Fprintf(c.IO.Out, "  email:      %s\n", p.Email)
 	fmt.Fprintf(c.IO.Out, "  template:   %s\n", p.Template)
 	fmt.Fprintf(c.IO.Out, "  timezone:   %s\n", zoneOrHost(p.Timezone))

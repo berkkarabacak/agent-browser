@@ -25,7 +25,7 @@ type profileRow struct {
 
 func (d *desk) buildProfiles() fyne.CanvasObject {
 	d.search = widget.NewEntry()
-	d.search.SetPlaceHolder("Filter by id, email, template, group, extension, state, or RAM")
+	d.search.SetPlaceHolder("Filter by name, email, template, group, extension, state, or RAM")
 	d.search.OnChanged = func(s string) {
 		d.queryUpdate(s)
 	}
@@ -65,7 +65,7 @@ func (d *desk) buildProfiles() fyne.CanvasObject {
 		widget.NewLabel("Actions"),
 		container.NewVBox(
 			container.NewGridWithColumns(4,
-				boldLabel("ID"),
+				boldLabel("Name"),
 				boldLabel("Email"),
 				boldLabel("State"),
 				boldLabel("RAM"),
@@ -151,7 +151,7 @@ func (d *desk) bindProfileRow(id widget.ListItemID, obj fyne.CanvasObject) {
 	row.mute = true
 	row.check.SetChecked(d.selected[line.ID])
 	row.mute = false
-	row.id.SetText(line.ID)
+	row.id.SetText(line.Title())
 	row.email.SetText(line.Email)
 	row.state.SetText(line.StateLabel())
 	row.ram.SetText(line.RAMLabel())
@@ -202,9 +202,9 @@ func (d *desk) updateHint() {
 	frozen := frozenNames(d.snap.Templates)
 	switch {
 	case len(d.lines) == 0 && len(frozen) == 0:
-		d.hint.SetText("No profiles yet. Freeze a template from the command line, then use Clone.")
+		d.hint.SetText("No profiles yet. Home → New profile asks for a name and an email.")
 	case len(d.lines) == 0:
-		d.hint.SetText("No profiles yet. Clone from " + strings.Join(frozen, ", ") + ".")
+		d.hint.SetText("No profiles yet. Home → New profile, or Clone from " + strings.Join(frozen, ", ") + ".")
 	case len(d.filtered) == 0:
 		d.hint.SetText("No profiles match that filter.")
 	case len(frozen) == 0:

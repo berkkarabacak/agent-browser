@@ -29,5 +29,12 @@ func (abTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 }
 
 func (abTheme) Size(name fyne.ThemeSizeName) float32 {
-	return theme.DefaultTheme().Size(name)
+	switch name {
+	case theme.SizeNameText:
+		return 16
+	case theme.SizeNamePadding, theme.SizeNameInnerPadding:
+		return 8
+	default:
+		return theme.DefaultTheme().Size(name)
+	}
 }

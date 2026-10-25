@@ -26,13 +26,20 @@ type desk struct {
 	summary   *widget.Label
 	banner    *widget.Label
 	bannerBox fyne.CanvasObject
+	update    *widget.Label
+	updateBox fyne.CanvasObject
 	status    *widget.Label
 	hint      *widget.Label
+	shell     fyne.CanvasObject
 
 	search      *widget.Entry
 	list        *widget.List
 	lines       []ProfileLine
 	filtered    []ProfileLine
+	homeList    *widget.List
+	homeLines   []ProfileLine
+	homeEmpty   *widget.Label
+	homeRows    map[fyne.CanvasObject]*homeRow
 	selected    map[string]bool
 	rows        map[fyne.CanvasObject]*profileRow
 	selectShown *widget.Check
@@ -64,6 +71,12 @@ type desk struct {
 	browserState    *widget.Label
 	muteSettings    bool
 	settingsTouched bool
+
+	wizardDecided bool
+	wizardOn      bool
+	prog          *widget.ProgressBar
+	progLabel     *widget.Label
+	prepared      FirstRun
 }
 
 type extItem struct {
@@ -80,6 +93,7 @@ func newDesk(svc *Service, win fyne.Window) *desk {
 		win:      win,
 		selected: map[string]bool{},
 		rows:     map[fyne.CanvasObject]*profileRow{},
+		homeRows: map[fyne.CanvasObject]*homeRow{},
 		groups:   map[string][]string{},
 	}
 }
@@ -96,15 +110,29 @@ func (d *desk) build() fyne.CanvasObject {
 	d.banner.Wrapping = fyne.TextWrapWord
 	d.bannerBox = container.NewPadded(d.banner)
 	d.bannerBox.Hide()
+	d.update = widget.NewLabel("")
+	d.update.Wrapping = fyne.TextWrapWord
+	d.updateBox = container.NewPadded(d.update)
+	d.updateBox.Hide()
 
 	top := container.NewVBox(
 		container.NewBorder(nil, nil, mark, ver, d.summary),
 		d.bannerBox,
+		d.updateBox,
 		widget.NewSeparator(),
 	)
 	d.status = widget.NewLabel("Ready.")
 	d.status.Truncation = fyne.TextTruncateEllipsis
 
+	pages := container.NewAppTabs(
+		container.NewTabItem("Home", d.buildHome()),
+		container.NewTabItem("Advanced", d.buildAdvanced()),
+	)
+	d.shell = container.NewBorder(top, container.NewPadded(d.status), nil, nil, pages)
+	return d.shell
+}
+
+func (d *desk) buildAdvanced() fyne.CanvasObject {
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Profiles", d.buildProfiles()),
 		container.NewTabItem("Extensions", d.buildExtensions()),
@@ -112,7 +140,7 @@ func (d *desk) build() fyne.CanvasObject {
 		container.NewTabItem("Settings", d.buildSettings()),
 	)
 	tabs.SetTabLocation(container.TabLocationLeading)
-	return container.NewBorder(top, container.NewPadded(d.status), nil, nil, tabs)
+	return tabs
 }
 
 func (d *desk) poll() {
@@ -155,19 +183,21 @@ func (d *desk) apply(snap Snapshot) {
 		n, snap.Status.MaxConcurrent, profile.FormatRSS(snap.Status.TotalRSS), auto))
 	if snap.Config.BrowserExists {
 		d.bannerBox.Hide()
-	} else {
+	} else if !d.wizardOn {
 		if strings.TrimSpace(snap.Config.BrowserPath) == "" {
-			d.banner.SetText("No browser path yet. On Settings, choose Chrome for Testing or ungoogled-chromium. Stock Google Chrome ignores extension loading.")
+			d.banner.SetText("Chrome is not set up yet. Close this window and open Agent Browser again.")
 		} else {
-			d.banner.SetText("Browser not found: " + snap.Config.BrowserExpanded)
+			d.banner.SetText("Chrome was not found at " + snap.Config.BrowserExpanded + ". On Advanced, then Settings, choose the chrome program.")
 		}
 		d.bannerBox.Show()
 	}
 	d.lines = snap.Lines
 	d.refilter()
+	d.refreshHome()
 	d.applyExtensions(snap)
 	d.applyGroups(snap)
 	d.applySettings(snap)
+	d.maybeWizard(snap)
 }
 
 func (d *desk) note(text string) {

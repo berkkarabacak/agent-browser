@@ -3,6 +3,7 @@ package cli
 const rootHelp = `Agent Browser (abrowser) runs isolated Chromium profiles for AI agents.
 
 Usage:
+  abrowser                         Open the window
   abrowser [--root PATH] [--json] <command> [arguments]
 
 Data root:
@@ -157,16 +158,20 @@ const guiHelp = `Usage:
   abrowser --root PATH gui
   abrowser gui --root PATH
 
-Opens the desktop window on this data root.
+Opens the desktop window on this data root. With no command, abrowser
+opens the same window.
 
-The window lists every profile (id, email, template, groups, running state,
-and RAM) and can filter that list. Launch and Close act on one profile or
-on the checked rows. Clone copies a frozen template into a new profile
-(id, email, and groups). Edit changes a profile's groups and its +ext / -ext
-overrides. Extensions and Groups manage the shared store. Settings stores
-the browser executable, the concurrent cap, and auto-close.
+Home is the simple view: New profile asks for a name and an email, and
+each person has an Open or Close button. Add an extension accepts a
+Chrome Web Store link. Advanced keeps the full profile list, where
+Launch and Close act on one profile or on the checked rows, plus the
+extension store, groups, and settings.
 
-Creating and freezing a template stays on the command line:
+The first launch, when there are no profiles yet, asks a few plain
+questions, downloads Chrome for Testing if it is missing, and creates a
+golden template plus a common group.
+
+Creating and freezing a template can still be done on the command line:
   abrowser template create golden --group common
   abrowser template freeze golden
 

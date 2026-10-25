@@ -6,6 +6,7 @@ import "time"
 // Profile is stored at profiles/<id>/manifest.json.
 type Profile struct {
 	ID               string    `json:"id"`
+	DisplayName      string    `json:"displayName,omitempty"`
 	Email            string    `json:"email"`
 	Template         string    `json:"template"`
 	Groups           []string  `json:"groups"`

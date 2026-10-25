@@ -8,15 +8,24 @@ import (
 
 // ProfileLine is one row in the profile list.
 type ProfileLine struct {
-	ID       string
-	Email    string
-	Template string
-	Groups   []string
-	Add      []string
-	Remove   []string
-	Running  bool
-	RSS      uint64
-	KnownRAM bool
+	ID          string
+	DisplayName string
+	Email       string
+	Template    string
+	Groups      []string
+	Add         []string
+	Remove      []string
+	Running     bool
+	RSS         uint64
+	KnownRAM    bool
+}
+
+// Title is the name a person typed, or the profile id when they did not.
+func (p ProfileLine) Title() string {
+	if strings.TrimSpace(p.DisplayName) != "" {
+		return p.DisplayName
+	}
+	return p.ID
 }
 
 // StateLabel is the running-state word used by the list and the filter.
@@ -70,6 +79,8 @@ func overrideBrief(add, remove []string) string {
 func (p ProfileLine) haystack() string {
 	parts := []string{
 		p.ID,
+		p.DisplayName,
+		p.Title(),
 		p.Email,
 		p.Template,
 		strings.Join(p.Groups, " "),
@@ -81,7 +92,7 @@ func (p ProfileLine) haystack() string {
 	return strings.ToLower(strings.Join(parts, "\n"))
 }
 
-// FilterProfiles keeps rows whose id, email, template, groups, extensions,
+// FilterProfiles keeps rows whose name, id, email, template, groups, extensions,
 // running state, or RAM text contain query. The match is case-insensitive.
 // An empty query returns every row.
 func FilterProfiles(in []ProfileLine, query string) []ProfileLine {

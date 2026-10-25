@@ -19,11 +19,15 @@ import (
 const Version = version.Current
 
 // IO is the process stdio plus whether prompts are allowed.
+// OpenWindow, when set, runs for an invocation with no command so a
+// double-clicked app opens the desktop window. Tests leave it nil and
+// still get the help text.
 type IO struct {
 	In          io.Reader
 	Out         io.Writer
 	Err         io.Writer
 	Interactive bool
+	OpenWindow  func(root string) error
 }
 
 // CLI runs one invocation.
@@ -56,8 +60,41 @@ func Run(args []string, io IO) int {
 	return c.dispatch(rest)
 }
 
+// OpensWindow reports whether this invocation should open the desktop window.
+// gui --help stays on the command line.
+func OpensWindow(args []string) bool {
+	rest, err := dropGlobals(args)
+	if err != nil || len(rest) == 0 {
+		return err == nil
+	}
+	if rest[0] != "gui" {
+		return false
+	}
+	for _, a := range rest[1:] {
+		if a == "--help" || a == "-h" || a == "help" {
+			return false
+		}
+	}
+	return true
+}
+
+func dropGlobals(args []string) ([]string, error) {
+	_, _, rest, err := splitGlobals(args)
+	return rest, err
+}
+
 func (c *CLI) dispatch(args []string) int {
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
+	if len(args) == 0 {
+		if c.IO.OpenWindow != nil {
+			if err := c.IO.OpenWindow(c.Root); err != nil {
+				return c.fail(err)
+			}
+			return 0
+		}
+		fmt.Fprint(c.IO.Out, rootHelp)
+		return 0
+	}
+	if args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
 		if len(args) > 1 && args[0] == "help" {
 			return c.dispatch(append(append([]string{}, args[1:]...), "--help"))
 		}

@@ -85,13 +85,14 @@ func assemble(inv app.Inventory, st app.Status, cfg app.ConfigView, exts []exten
 	lines := make([]ProfileLine, 0, len(inv.Profiles))
 	for _, p := range inv.Profiles {
 		line := ProfileLine{
-			ID:       p.ID,
-			Email:    p.Email,
-			Template: p.Template,
-			Groups:   append([]string{}, p.Groups...),
-			Add:      append([]string{}, p.AddExtensions...),
-			Remove:   append([]string{}, p.RemoveExtensions...),
-			Running:  p.Running,
+			ID:          p.ID,
+			DisplayName: p.DisplayName,
+			Email:       p.Email,
+			Template:    p.Template,
+			Groups:      append([]string{}, p.Groups...),
+			Add:         append([]string{}, p.AddExtensions...),
+			Remove:      append([]string{}, p.RemoveExtensions...),
+			Running:     p.Running,
 		}
 		if e, ok := rss[p.ID]; ok {
 			line.RSS = e.RSS

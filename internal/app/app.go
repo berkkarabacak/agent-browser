@@ -110,6 +110,7 @@ type Config struct {
 	MaxConcurrent int      `json:"maxConcurrent"`
 	AutoCloseLRU  bool     `json:"autoCloseLRU"`
 	ExtraArgs     []string `json:"extraArgs"`
+	SetupComplete bool     `json:"setupComplete"`
 }
 
 // ConfigView is config plus derived path checks.
@@ -121,6 +122,7 @@ type ConfigView struct {
 	MaxConcurrent   int      `json:"maxConcurrent"`
 	AutoCloseLRU    bool     `json:"autoCloseLRU"`
 	ExtraArgs       []string `json:"extraArgs"`
+	SetupComplete   bool     `json:"setupComplete"`
 }
 
 func (a *App) loadConfig() (Config, error) {
@@ -185,6 +187,7 @@ func (a *App) configView() (ConfigView, error) {
 		MaxConcurrent:   cfg.MaxConcurrent,
 		AutoCloseLRU:    cfg.AutoCloseLRU,
 		ExtraArgs:       append([]string{}, cfg.ExtraArgs...),
+		SetupComplete:   cfg.SetupComplete,
 	}, nil
 }
 
@@ -228,6 +231,27 @@ func (a *App) SetMaxConcurrent(n int) (ConfigView, error) {
 			return err
 		}
 		cfg.MaxConcurrent = n
+		if err := a.saveConfig(cfg); err != nil {
+			return err
+		}
+		view, err = a.configView()
+		return err
+	})
+	return view, err
+}
+
+// SetSetupComplete records that the first-run wizard has finished.
+func (a *App) SetSetupComplete(v bool) (ConfigView, error) {
+	var view ConfigView
+	err := a.withLock(func() error {
+		if err := a.ensure(); err != nil {
+			return err
+		}
+		cfg, err := a.loadConfig()
+		if err != nil {
+			return err
+		}
+		cfg.SetupComplete = v
 		if err := a.saveConfig(cfg); err != nil {
 			return err
 		}

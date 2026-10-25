@@ -840,18 +840,19 @@ func dropName(list []string, name, version string) ([]string, bool) {
 
 // CloneRequest copies a frozen template into a new profile.
 type CloneRequest struct {
-	Template  string
-	ID        string
-	Email     string
-	Timezone  *string
-	Locale    *string
-	Notes     *string
-	Groups    []string
-	GroupsSet bool
-	Add       []string
-	AddSet    bool
-	Remove    []string
-	RemoveSet bool
+	Template    string
+	ID          string
+	Email       string
+	Timezone    *string
+	Locale      *string
+	Notes       *string
+	Groups      []string
+	GroupsSet   bool
+	Add         []string
+	AddSet      bool
+	Remove      []string
+	RemoveSet   bool
+	DisplayName string
 }
 
 // CloneResult is the new profile and how much user data was copied.
@@ -950,6 +951,7 @@ func (a *App) Clone(req CloneRequest) (CloneResult, error) {
 		now := a.now()
 		p := manifest.Profile{
 			ID:               req.ID,
+			DisplayName:      trimDisplayName(req.DisplayName),
 			Email:            req.Email,
 			Template:         req.Template,
 			Groups:           groups,
@@ -969,6 +971,15 @@ func (a *App) Clone(req CloneRequest) (CloneResult, error) {
 		return nil
 	})
 	return res, err
+}
+
+func trimDisplayName(s string) string {
+	s = strings.TrimSpace(s)
+	r := []rune(s)
+	if len(r) > 80 {
+		r = r[:80]
+	}
+	return string(r)
 }
 
 func sortStrings(s []string) {
