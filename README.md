@@ -4,6 +4,8 @@
 
 Milestone 1 is the CLI: golden templates, cloned user-data directories, a shared extension store, and a cap on how many profiles can run at once. Milestone 2 adds `abrowser gui`, a desktop window on the same binary and the same data root. Milestone 3 adds `AgentBrowserSetup.exe`, a per-user installer, a first-run wizard, and a simpler home screen.
 
+The project handover (architecture, how to build and test, release steps, and what is still open) is [HANDOVER.md](HANDOVER.md).
+
 Stock Google Chrome ignores `--load-extension`. The installer downloads [Chrome for Testing](https://googlechromelabs.github.io/chrome-for-testing/) on first run. [Ungoogled Chromium](https://github.com/ungoogled-software/ungoogled-chromium-windows/releases) also works if you point Settings at it later. Do not use the consumer Google Chrome from google.com/chrome.
 
 ## Install on Windows
@@ -420,6 +422,7 @@ internal/names/        id, email, locale, and time zone checks
 internal/version/      release string shared by the CLI and the window
 installer/             NSIS script for AgentBrowserSetup.exe
 assets/                window and installer icon
+HANDOVER.md            architecture, test notes, release steps, next work
 ```
 
 ## Left out
